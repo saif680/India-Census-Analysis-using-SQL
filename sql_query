@@ -1,0 +1,109 @@
+-- dataset for Maharashtra & west bengal
+
+SELECT * FROM census.census_data_1
+where state in ('Maharashtra','West bengal');
+
+-- population of India
+
+SELECT sum(population) AS total_population
+FROM census_data_2;
+
+-- Avg Growth of States and Union territories
+
+SELECT (state),avg(growth)*100 Avg_growth_state_Uts
+FROM census.census_data_1
+GROUP BY state;
+
+-- state having average sex_ratio below 1000 (Use of Having clause)
+
+SELECT state,round(avg(Sex_Ratio),0) avg_sex_ratio     
+from census.census_data_1
+group by state
+having round(avg(Sex_Ratio),0) >1000
+order by avg_sex_ratio desc ;
+
+-- Avg Growth of India
+
+SELECT avg(growth)*100 Avg_growth
+FROM census.census_data_1;
+
+-- top 5 states showing highest sex ratio
+
+SELECT state,round(avg(Sex_Ratio),0) avg_sex_ratio  
+FROM census.census_data_1
+GROUP BY state 
+ORDER BY  avg_sex_ratio desc limit 5;
+
+-- Top 2 districts in each state showing Highest Sex ratio
+SELECT *
+FROM (
+SELECT district,state,growth,literacy,sex_ratio,
+max(sex_ratio) OVER (partition by state) as Max_Sex_ratio,
+dense_rank() OVER (partition by state ORDER BY sex_ratio desc) as densed_rank
+FROM census.census_data_1 as d1
+WHERE district not like 'NULL%'
+) x
+WHERE x.Densed_rank <3 
+ORDER BY Max_Sex_ratio desc,Sex_Ratio desc;
+
+--- creating table then applying union operator
+
+CREATE TABLE topstates
+(state nvarchar(255),
+topstate float);
+INSERT INTO topstates
+SELECT state, round(avg(literacy),0) avg_literacy_ratio 
+FROM census.census_data_1 
+GROUP BY state
+ORDER BY avg_literacy_ratio desc;
+
+--- Average literacy of top 3 state. 
+
+CREATE TABLE bottomstates
+(state nvarchar(255),
+bottomstate float);
+INSERT INTO bottomstates
+SELECT  state, round(avg(literacy),0) avg_literacy_ratio 
+FROM census.census_data_1
+GROUP BY state
+HAVING state not in ('NULL','State')
+ORDER BY avg_literacy_ratio ;
+
+--- Average literacy rate of bottom 3 states ( applying union operator)
+
+SELECT * FROM (
+SELECT  * FROM topstates order by topstates.topstate desc limit 3)  a
+UNION
+SELECT * FROM (
+SELECT * FROM bottomstates order by bottomstates.bottomstate limit 3) b
+ORDER BY topstate desc;
+
+-- Joining Both tables                                           
+                                                                 
+select d1.district,d1.state,sex_ratio,population                
+from census.census_data_1 d1
+inner join census.census_data_2 d2
+on d1.District=d2.District;
+
+-- Finding Males and Females in each district.
+
+SELECT d3.district ,d3.state,round(d3.population/(d3.sex_ratio +1),0) males,round((d3.population*d3.sex_ratio)/(d3.sex_ratio+1),0) as females
+FROM (
+SELECT d1.district,d1.State,d1.sex_ratio/1000 sex_ratio,d2.population                 
+FROM census.census_data_1 as d1
+INNER JOIN census.census_data_2 as d2
+ON d1.District=d2.District) d3;
+
+-- Total Males &Total Females in each state.
+
+SELECT d4.state,sum(males) as Total_males ,sum(females) Total_females
+FROM (
+SELECT d3.district ,d3.state,round(d3.population/(d3.sex_ratio +1),0) males,round((d3.population*d3.sex_ratio)/(d3.sex_ratio+1),0) females
+FROM (
+SELECT d1.district,d1.State,d1.sex_ratio/1000 sex_ratio,d2.population                 
+FROM census.census_data_1 d1
+INNER JOIN census.census_data_2 d2
+ON d1.District=d2.District) d3)d4
+GROUP BY d4.state;
+
+-------------------------------------------------------------------------------- END ---------------------------------------------------------------------------------------------- 
